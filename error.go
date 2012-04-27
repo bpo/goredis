@@ -15,10 +15,11 @@
 package redis
 
 import (
-	"os"
+	"errors"
 	"fmt"
 	"log"
 )
+
 // ----------------------------------------------------------------------------
 // ERRORS
 // ----------------------------------------------------------------------------
@@ -44,21 +45,49 @@ const (
 	SYSTEM_ERR
 )
 
+func (ec ErrorCategory) String() (s string) {
+	switch ec {
+	case SYSTEM_ERR:
+		s = "SYSTEM_ERROR"
+	case REDIS_ERR:
+		s = "REDIS_ERROR"
+	}
+	return
+}
+
 // Defines the interfce to get details of an Error.
-// 
+//
 type Error interface {
-	Cause() os.Error
+	// underlying error that caused this error - or nil
+	Cause() error
+
+	// support std. Go Error interface
+	Error() string
+
+	// category of error -- never nil
 	Category() ErrorCategory
+
+	// the error message - if a Redis error these are exactly
+	// as provided by the server e.g. "ERR - invalid password"
+	// possibly "" if SYSTEM-ERR
 	Message() string
+
+	// conv to String
 	String() string
+
+	// check if error is a Redis error e.g. "ERR - invalid password"
+	// a convenience method
+	IsRedisError() bool
 }
 type redisError struct {
 	msg      string
 	category ErrorCategory
-	cause    os.Error
+	cause    error
 }
 
-func (e redisError) Cause() os.Error         { return e.cause }
+func (e redisError) IsRedisError() bool            { return e.category == REDIS_ERR}
+func (e redisError) Cause() error            { return e.cause }
+func (e redisError) Error() string           { return e.String() }
 func (e redisError) Category() ErrorCategory { return e.category }
 func (e redisError) Message() string         { return e.msg }
 func (e redisError) String() string {
@@ -76,52 +105,78 @@ func (e redisError) String() string {
 	return fmt.Sprintf("[go-redis|%d|%s]: %s %s", e.category, errCat, e.msg, causeDetails)
 }
 
+func _newRedisError(cat ErrorCategory, msg string) redisError {
+	var e redisError
+	e.msg = msg
+	e.category = cat
+	return e
+}
+
 // Creates an Error of REDIS_ERR category with the message.
 //
 func NewRedisError(msg string) Error {
-	e := new(redisError)
-	e.msg = msg
-	e.category = REDIS_ERR
-	return e
+	return _newRedisError(REDIS_ERR, msg)
+}
+
+// Creates an Error of REDIS_ERR category with the message.
+//
+func NewSystemError(msg string) Error {
+	return _newRedisError(SYSTEM_ERR, msg)
 }
 
 // Creates an Error of specified category with the message.
 //
-func NewError(t ErrorCategory, msg string) Error {
-	e := new(redisError)
-	e.msg = msg
-	e.category = t
-	return e
+func NewError(cat ErrorCategory, msg string) Error {
+	return _newRedisError(cat, msg)
 }
 
 // Creates an Error of specified category with the message and cause.
 //
-func NewErrorWithCause(cat ErrorCategory, msg string, cause os.Error) Error {
-	e := new(redisError)
-	e.msg = msg
-	e.category = cat
+func NewErrorWithCause(cat ErrorCategory, msg string, cause error) Error {
+	e := _newRedisError(cat, msg)
 	e.cause = cause
 	return e
 }
 
-// ----------------
-// impl. utils
-//
-// a utility function for various components
-//
+
+// utility function emits log if _debug flag /debug() is true
+// Error is returned.
+// usage:
+//      foo, e := FooBar()
+//      if e != nil {
+//          return withError(e)
+//      }
 func withError(e Error) Error {
 	if debug() {
 		log.Println(e)
 	}
 	return e
 }
-func withNewError(m string) os.Error {
-	e := os.NewError(m)
+
+// creates a new generic (Go) error
+// and emits log if _debug flag /debug() is true
+// Error is returned.
+// usage:
+//      v := FooBar()
+//      if v != expected {
+//          return withNewError("value v is unexpected")
+//      }
+func withNewError(m string) error {
+	e := errors.New(m)
 	if debug() {
 		log.Println(e)
 	}
 	return e
 }
-func withOsError(m string, cause os.Error) os.Error {
+
+// creates a new redis.Error of category SYSTEM_ERR
+// and emits log if _debug flag /debug() is true
+// Error is returned.
+// usage:
+//      _, e := SomeLibraryOrGoCall()
+//      if e != nil {
+//          return withNewError("value v is unexpected", e)
+//      }
+func withOsError(m string, cause error) error {
 	return withNewError(fmt.Sprintf("%s [cause: %s]", m, cause))
 }

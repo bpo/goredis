@@ -12,7 +12,13 @@ Also am not sure regarding the efficiency of the implementation (for the obvious
 The code is consolidated into a single 'redis' package and various elements of it are usable independently (for example if you wish to roll your own API but want to use the raw bytes protocol handling aspects).
 
 # Compliance
-Refer to compliance_note.txt.
+
+Both Go and Redis are dynamic projects and present a challenge in fully covering the possible combinations in the wild.  Given the release of Go 1, this project will focus on Go 1 based Redis compatibility; we'll deal with the far off prospect of renewed major weekly changes in Go if and when that arises.   
+
+Current status is compatible with Redis 2.4.n (2.4.9 tested)  and Go 1.  Redis feature set is not fully covered and is WIP.
+
+(Always refer to compliance_note.txt for current (accurate) status for specific branches.)
+ 
 
 # Getting started:
 
@@ -59,31 +65,33 @@ Confirm:
 
 ## build and install
 
-To build and install Go-Redis, from the root directory of the git clone:
+Go-Redis is built using the Go tool. The tool assumes the code will be in a folder $GOPATH/src/redis .  
 
-	cd src/pkg/redis
-	make clean && make install
-	cd -
+	cd $GOPATH/src/redis
+	go install
 
-Confirm the install:
+Confirm the install has created redis.a in your $GOPATH/pkg/<arch> folder:
 
-	ls -l $GOROOT/pkg/"$GOOS"_"$GOARCH"/redis.a
+	ls -l $GOPATH/pkg/"$GOOS"_"$GOARCH"/redis.a
 
+e.g. on my Mac OS X (64b) 
+
+	ls -l <my-gopath>/pkg/darwin_amd64
 
 ## run the benchmarks
 	
-After installing Go-Redis (per above), try (again from the root dir of Go-Redis):
+Basic benchmarks are in ~/bench.  Use Go tool (go run <bench>) to run the individual bench apps.
 
 	cd bench
-	./runbench synchclient
-	./runbench gosynchclient
+	# run the asyncbench.go 
+	go run asyncbench.go
 
 ## examples
 
 [Ciao.go][ciao] is a sort of hello world for redis and should get you started for the barebones necessities of getting a client and issuing commands.
 
 	cd examples
-	./run ciao
+	go run ciao.go
 
 [Go]: http://golang.org/
 [Redis]: http://github.com/antirez/redis

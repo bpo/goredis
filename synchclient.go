@@ -15,11 +15,11 @@
 package redis
 
 import (
-	"strings"
 	"bytes"
 	"fmt"
-	"strconv"
 	"log"
+	"strconv"
+	"strings"
 )
 
 // -----------------------------------------------------------------------------
@@ -37,14 +37,10 @@ func NewSynchClient() (c Client, err Error) {
 	spec := DefaultSpec()
 	c, err = NewSynchClientWithSpec(spec)
 	if err != nil {
-		if debug() {
-			log.Println("NewSynchClientWithSpec raised error: ", err)
-		}
+		log.Println("NewSynchClientWithSpec raised error: ", err)
 	}
 	if c == nil {
-		if debug() {
-			log.Println("NewSynchClientWithSpec returned nil Client.")
-		}
+		log.Println("NewSynchClientWithSpec returned nil Client.")
 		err = NewError(SYSTEM_ERR, "NewSynchClientWithSpec returned nil Client")
 	}
 	return
@@ -57,11 +53,9 @@ func NewSynchClientWithSpec(spec *ConnectionSpec) (c Client, err Error) {
 	_c := new(syncClient)
 	_c.conn, err = NewSyncConnection(spec)
 	if err != nil {
-		if debug() {
-			log.Println("NewSyncConnection() raised error: ", err)
-		}
-		return nil, err
+		return nil, withError (err)
 	}
+//	_c.conn = conn
 	return _c, nil
 }
 
@@ -153,6 +147,7 @@ func (c *syncClient) Keys(arg0 string) (result []string, err Error) {
 func convAndSplit(buff []byte) []string {
 	return strings.SplitN(bytes.NewBuffer(buff).String(), " ", 0)
 }
+
 /***
 // Redis SORT command.
 func (c *syncClient) Sort (arg0 string) (result redis.Sort, err Error){
@@ -214,6 +209,7 @@ func parseInfo(buff []byte) map[string]string {
 	}
 	return result
 }
+
 // Redis PING command.
 func (c *syncClient) Ping() (err Error) {
 	if c == nil {
@@ -438,7 +434,7 @@ func (c *syncClient) Lset(arg0 string, arg1 int64, arg2 []byte) (err Error) {
 func (c *syncClient) Lrem(key string, value []byte, count int64) (result int64, err Error) {
 	arg0bytes := []byte(key)
 	arg1bytes := value
-	arg2bytes := []byte(strconv.Itoa64(count))
+	arg2bytes := []byte(strconv.FormatInt(count, 10))
 
 	var resp Response
 	resp, err = c.conn.ServiceRequest(&LREM, [][]byte{arg0bytes, arg1bytes, arg2bytes})
@@ -465,8 +461,8 @@ func (c *syncClient) Llen(arg0 string) (result int64, err Error) {
 // Redis LRANGE command.
 func (c *syncClient) Lrange(arg0 string, arg1 int64, arg2 int64) (result [][]byte, err Error) {
 	arg0bytes := []byte(arg0)
-	arg1bytes := []byte(strconv.Itoa64(arg1))
-	arg2bytes := []byte(strconv.Itoa64(arg2))
+	arg1bytes := []byte(strconv.FormatInt(arg1, 10))
+	arg2bytes := []byte(strconv.FormatInt(arg2, 10))
 
 	var resp Response
 	resp, err = c.conn.ServiceRequest(&LRANGE, [][]byte{arg0bytes, arg1bytes, arg2bytes})
@@ -619,6 +615,7 @@ func concatAndGetBytes(arr []string, delim string) []byte {
 	}
 	return []byte(cstr)
 }
+
 // Redis SINTER command.
 func (c *syncClient) Sinter(arg0 string, arg1 []string) (result [][]byte, err Error) {
 	arg0bytes := []byte(arg0)
@@ -777,7 +774,7 @@ func (c *syncClient) Zscore(arg0 string, arg1 []byte) (result float64, err Error
 }
 
 func Btof64(buff []byte) (num float64, e Error) {
-	num, ce := strconv.Atof64(bytes.NewBuffer(buff).String())
+	num, ce := strconv.ParseFloat(bytes.NewBuffer(buff).String(), 64)
 	if ce != nil {
 		e = NewErrorWithCause(SYSTEM_ERR, "Expected a parsable byte representation of a float64", ce)
 	}
